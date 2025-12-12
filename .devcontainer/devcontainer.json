@@ -1,0 +1,42 @@
+{
+  "name": "Kubernetes Development Environment",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+
+  // Run k3s directly without Docker-in-Docker (works with Podman)
+  // k3s uses built-in containerd runtime, no systemd required
+  "privileged": true,
+  "runArgs": [
+    "--cgroupns=host",
+    "--tmpfs=/run",
+    "--tmpfs=/var/run"
+  ],
+
+  // Mount cgroup for k3s containerd
+  "mounts": [
+    "source=/sys/fs/cgroup,target=/sys/fs/cgroup,type=bind,readonly"
+  ],
+
+  // VSCode customizations
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-kubernetes-tools.vscode-kubernetes-tools",
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "kubernetes.kubectlPath": "/usr/bin/kubectl"
+      }
+    }
+  },
+
+  // Run initialization script to fix socket permissions and verify tools
+  "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/init.sh",
+
+  // Use 'forwardPorts' to make a list of ports inside the container available locally.
+  "forwardPorts": [],
+
+  // Set the default user
+  "remoteUser": "vscode"
+}
