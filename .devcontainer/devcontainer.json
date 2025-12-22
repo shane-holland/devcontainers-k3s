@@ -1,42 +1,57 @@
 {
-  "name": "Kubernetes Development Environment",
+  "name": "Kubernetes Development (k3d)",
   "build": {
     "dockerfile": "Dockerfile"
   },
+  "workspaceFolder": "/workspaces",
 
-  // Run k3s directly without Docker-in-Docker (works with Podman)
-  // k3s uses built-in containerd runtime, no systemd required
+  // Privileged mode required for Docker-in-Docker
   "privileged": true,
-  "runArgs": [
-    "--cgroupns=host",
-    "--tmpfs=/run",
-    "--tmpfs=/var/run"
-  ],
 
-  // Mount cgroup for k3s containerd
-  "mounts": [
-    "source=/sys/fs/cgroup,target=/sys/fs/cgroup,type=bind,readonly"
-  ],
+  // Use host cgroup namespace for proper cgroup v2 delegation in DinD
+  // This is required for Docker-in-Docker with cgroup v2
+  "runArgs": ["--cgroupns=host"],
 
-  // VSCode customizations
+  "remoteUser": "root",
+
+  // Start Docker daemon after container is created (runs as root)
+  "postCreateCommand": "/opt/devcontainer/scripts/start-docker.sh",
+
+  // Create k3d cluster on container start (runs as vscode user)
+  "postStartCommand": "/opt/devcontainer/scripts/init-cluster.sh",
+
+  // Environment variables
+  "containerEnv": {
+    "KUBECONFIG": "/root/.kube/config",
+    "K3D_CLUSTER_NAME": "devcontainer"
+  },
+
+  // VS Code customizations
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-kubernetes-tools.vscode-kubernetes-tools",
+        "ms-kubernetes-tools.vscode-kubernetes-tools"
       ],
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "kubernetes.kubectlPath": "/usr/bin/kubectl"
+        "terminal.integrated.defaultProfile.linux": "bash"
       }
     }
   },
 
-  // Run initialization script to fix socket permissions and verify tools
-  "postCreateCommand": "bash ${containerWorkspaceFolder}/.devcontainer/init.sh",
-
-  // Use 'forwardPorts' to make a list of ports inside the container available locally.
-  "forwardPorts": [],
-
-  // Set the default user
-  "remoteUser": "vscode"
+  // Port forwarding for Kubernetes API and loadbalancer
+  "forwardPorts": [6443, 8080, 8443],
+  "portsAttributes": {
+    "6443": {
+      "label": "Kubernetes API",
+      "protocol": "https"
+    },
+    "8080": {
+      "label": "HTTP LoadBalancer",
+      "protocol": "http"
+    },
+    "8443": {
+      "label": "HTTPS LoadBalancer",
+      "protocol": "https"
+    }
+  }
 }

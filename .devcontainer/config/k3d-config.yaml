@@ -1,0 +1,43 @@
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: devcontainer
+servers: 1
+agents: 1
+ports:
+  - port: 8080:80
+    nodeFilters:
+      - loadbalancer
+  - port: 8443:443
+    nodeFilters:
+      - loadbalancer
+  - port: 6443:6443
+    nodeFilters:
+      - server:0
+
+# Minimal options for Docker-in-Docker compatibility
+# Note: cgroup volume mount removed - k3s manages cgroups internally
+options:
+  k3d:
+    wait: true
+    timeout: "120s"
+  k3s:
+    extraArgs:
+      - arg: --disable=traefik
+        nodeFilters:
+          - server:*
+      # Use native snapshotter for DinD compatibility (overlayfs doesn't work in nested containers)
+      - arg: --snapshotter=native
+        nodeFilters:
+          - server:*
+          - agent:*
+      # Let k3s auto-detect cgroup driver (systemd not available in containers)
+      - arg: --kube-proxy-arg=conntrack-max-per-core=0
+        nodeFilters:
+          - server:*
+      - arg: --kube-controller-manager-arg=node-monitor-grace-period=60s
+        nodeFilters:
+          - server:*
+  kubeconfig:
+    updateDefaultKubeconfig: false
+    switchCurrentContext: false

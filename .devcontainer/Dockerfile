@@ -1,42 +1,47 @@
-# Run k3s directly without Docker or systemd
-# k3s has built-in containerd runtime
+FROM mcr.microsoft.com/devcontainers/base:ubuntu-24.04
 
-# Use Microsoft's base image (matches devcontainer.json)
-FROM mcr.microsoft.com/devcontainers/base:ubuntu-22.04
-
-# Avoid prompts from apt
+# Avoid prompts during apt operations
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies for k3s
-RUN apt-get update \
-    && apt-get install -y \
-        ca-certificates \
-        curl \
-        iptables \
-        git \
-        wget \
+# Install base dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    jq \
+    unzip \
+    apt-transport-https \
+    gnupg \
+    lsb-release \
+    iptables \
+    supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# Note: k3s binary will be downloaded at runtime by init.sh
-# This avoids build-time network issues and uses the host's network connection
+# Install Docker Engine (full daemon for Docker-in-Docker)
+RUN curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" \
+    | tee /etc/apt/sources.list.d/docker.list > /dev/null \
+    && apt-get update \
+    && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install helm
-RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+# Create docker group and add vscode user to it (for Docker-in-Docker)
+RUN groupadd -f docker && usermod -aG docker root
 
-# Install k9s (Kubernetes CLI UI)
-RUN K9S_VERSION="v0.32.4" \
-    && ARCH="$(uname -m | sed 's/aarch64/arm64/' | sed 's/x86_64/amd64/')" \
-    && K9S_URL="https://github.com/derailed/k9s/releases/download/${K9S_VERSION}/k9s_Linux_${ARCH}.tar.gz" \
-    && echo "Downloading k9s ${K9S_VERSION} for ${ARCH}..." \
-    && wget --retry-connrefused --waitretry=5 --read-timeout=20 --timeout=15 --tries=5 \
-        -O k9s.tar.gz "${K9S_URL}" \
-    && tar -xzf k9s.tar.gz -C /usr/local/bin \
-    && rm k9s.tar.gz
+# Install k3d
+COPY scripts/install-k3d.sh /tmp/
+RUN bash /tmp/install-k3d.sh && rm /tmp/install-k3d.sh
 
-# Install kubectx and kubens
-RUN git clone https://github.com/ahmetb/kubectx /opt/kubectx \
-    && ln -s /opt/kubectx/kubectx /usr/local/bin/kubectx \
-    && ln -s /opt/kubectx/kubens /usr/local/bin/kubens
+# Install kubectl, helm, k9s, kubectx/kubens
+COPY scripts/install-tools.sh /tmp/
+RUN bash /tmp/install-tools.sh && rm /tmp/install-tools.sh
 
-# Reset DEBIAN_FRONTEND
+# Copy runtime scripts into the image
+RUN mkdir -p /opt/devcontainer/scripts /opt/devcontainer/config
+COPY scripts/start-docker.sh /opt/devcontainer/scripts/
+COPY scripts/init-cluster.sh /opt/devcontainer/scripts/
+COPY config/k3d-config.yaml /opt/devcontainer/config/
+RUN chmod +x /opt/devcontainer/scripts/*.sh
+
 ENV DEBIAN_FRONTEND=dialog
