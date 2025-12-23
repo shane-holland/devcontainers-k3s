@@ -115,31 +115,26 @@ ports:
     nodeFilters:
       - server:0
 
-# Mount DinD container's cgroups into k3s containers for proper cgroup v2 support
-volumes:
-  - volume: /sys/fs/cgroup:/sys/fs/cgroup:rw
-    nodeFilters:
-      - server:*
-      - agent:*
-
 options:
   k3s:
     extraArgs:
       - arg: --disable=traefik
         nodeFilters:
           - server:*
-      # Use native snapshotter for DinD compatibility (overlayfs doesn't work in nested containers)
       - arg: --snapshotter=native
         nodeFilters:
           - server:*
           - agent:*
+      - arg: --kube-proxy-arg=conntrack-max-per-core=0
+        nodeFilters:
+          - server:*
 ```
 
 **Key Docker-in-Docker configurations:**
 
-- `volumes: /sys/fs/cgroup:/sys/fs/cgroup:rw` - **Critical:** Mounts cgroup filesystem from DinD container into k3s containers for proper resource management
 - `--snapshotter=native` - **Required for DinD:** The default overlayfs snapshotter doesn't work in nested containers. The native snapshotter is slower but compatible with Docker-in-Docker
-- `port: 6443:6443` - Maps Kubernetes API server port to host for kubectl access
+- `--api-port 6443` - Forces k3d to expose API on port 6443 instead of random port
+- `--cgroupns=host` (in devcontainer.json) - Enables cgroup v2 delegation for proper resource management
 - k3s auto-detects the cgroup driver (cgroupfs) - systemd is not available in container environments
 
 **Customization options:**
@@ -295,8 +290,6 @@ k9s
    - **Cluster creation timeout**: First startup downloads images, can take 1-2 minutes
    - **Port conflicts**: Ports 6443, 8080, 8443 must be available
    - **Docker not ready**: Ensure Docker daemon is running with `docker info`
-   - **cgroup errors** (`failed to find memory cgroup`): Make sure `--cgroupns=host` is in devcontainer.json runArgs
-   - **overlayfs errors**: The native snapshotter should be configured in k3d-config.yaml
 
 ### kubectl cannot connect
 
