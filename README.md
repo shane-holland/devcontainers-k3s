@@ -35,6 +35,59 @@ This setup uses [k3d](https://k3d.io/) to run [k3s](https://k3s.io/) Kubernetes 
   - Linux: [Docker Engine](https://docs.docker.com/engine/install/) or Docker Desktop
 
 - **VS Code** with [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
+  - Or **Windsurf** (VS Code fork with AI capabilities)
+
+### Using Podman Instead of Docker
+
+This devcontainer works with **Podman** as a Docker alternative! Podman must be configured with **Docker Compatibility Mode** enabled.
+
+#### VS Code Configuration
+
+Configure VS Code to use Podman:
+
+1. Open VS Code Settings (File → Preferences → Settings or `Ctrl+,`)
+2. Search for "dev containers docker"
+3. Set the following:
+
+   | Setting | Value |
+   |---------|-------|
+   | **Docker Compose Path** | `podman compose` |
+   | **Docker Path** | `podman` |
+   | **Docker Socket Path** | `//./pipe/docker_engine` (Windows) |
+   | **Execute in WSL** | ❌ Disabled |
+   | **Mount Wayland Socket** | ❌ Disabled |
+
+#### Windsurf Configuration
+
+Windsurf cannot be configured to use Podman directly, so you need to create a Docker → Podman symlink:
+
+**Windows (Command Prompt as Administrator):**
+
+```cmd
+# 1. Open Command Prompt as Administrator (required for mklink)
+
+# 2. Find podman.exe location (common paths):
+#    C:\Program Files\RedHat\Podman\podman.exe
+#    C:\Program Files\Podman\podman.exe
+
+# 3. Create symlink in System32 (already in PATH)
+mklink "C:\Windows\System32\docker.exe" "C:\Program Files\RedHat\Podman\podman.exe"
+```
+
+**Verify the symlink:**
+```cmd
+docker --version
+# Should show: podman version X.X.X
+```
+
+**macOS/Linux:**
+```bash
+# Create symlink to docker
+sudo ln -s $(which podman) /usr/local/bin/docker
+
+# Verify
+docker --version  # Should show podman version
+```
 
 ### Usage
 
@@ -370,14 +423,21 @@ The setup uses modular scripts in [.devcontainer/scripts/](.devcontainer/scripts
 
 ### Platform Compatibility
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| **macOS (Apple Silicon)** | ✅ Excellent | Docker Desktop required |
-| **macOS (Intel)** | ✅ Excellent | Docker Desktop required |
-| **Linux** | ✅ Excellent | Docker Engine or Docker Desktop |
-| **Windows (WSL2)** | ✅ Excellent | Docker Desktop with WSL2 required |
+| Platform | Docker | Podman | Notes |
+|----------|--------|--------|-------|
+| **macOS (Apple Silicon)** | ✅ Excellent | ✅ Supported | Docker Desktop or Podman Desktop |
+| **macOS (Intel)** | ✅ Excellent | ✅ Supported | Docker Desktop or Podman Desktop |
+| **Linux** | ✅ Excellent | ✅ Supported | Docker Engine/Desktop or Podman |
+| **Windows (WSL2)** | ✅ Excellent | ✅ Supported | Docker Desktop or Podman with Docker compat |
 
-**Note**: This setup requires Docker and uses Docker-in-Docker. It does not support Podman.
+**Supported Container Runtimes:**
+- ✅ **Docker Desktop** - Full support, all platforms
+- ✅ **Podman** - Full support with Docker compatibility mode (see [Podman configuration](#using-podman-instead-of-docker))
+- ✅ **Docker Engine** - Linux only
+
+**Supported IDEs:**
+- ✅ **VS Code** - Full support with Dev Containers extension
+- ✅ **Windsurf** - Full support (requires Docker symlink for Podman)
 
 ## References
 
