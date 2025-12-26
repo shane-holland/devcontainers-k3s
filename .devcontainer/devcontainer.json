@@ -14,10 +14,8 @@
 
   "remoteUser": "root",
 
-  // Start Docker daemon after container is created (runs as root)
+  // Start Docker daemon and create k3d cluster after container is started (runs as root)
   "postCreateCommand": "/opt/devcontainer/scripts/start-docker.sh",
-
-  // Create k3d cluster on container start (runs as vscode user)
   "postStartCommand": "/opt/devcontainer/scripts/init-cluster.sh",
 
   // Environment variables

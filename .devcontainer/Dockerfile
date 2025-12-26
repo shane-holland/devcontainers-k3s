@@ -41,7 +41,23 @@ RUN bash /tmp/install-tools.sh && rm /tmp/install-tools.sh
 RUN mkdir -p /opt/devcontainer/scripts /opt/devcontainer/config
 COPY scripts/start-docker.sh /opt/devcontainer/scripts/
 COPY scripts/init-cluster.sh /opt/devcontainer/scripts/
+COPY scripts/devcontainer-init.sh /opt/devcontainer/scripts/
 COPY config/k3d-config.yaml /opt/devcontainer/config/
 RUN chmod +x /opt/devcontainer/scripts/*.sh
+
+# Windsurf doesn't support devcontainer lifecycle hooks.
+# To support initializing docker/k3s in Windsurf, remove/comment out the `postCreateCommand` and
+# `postStartCommand` from `devcontainer.json` and uncomment the code below to use bash.bashrc instead.
+
+## Append first-run logic directly to /etc/bash.bashrc (runs for ALL interactive bash shells)
+# RUN echo '' >> /etc/bash.bashrc && \
+#     echo '# Auto-run devcontainer initialization on first interactive shell' >> /etc/bash.bashrc && \
+#     echo 'if [ -t 1 ] && [ ! -f /var/lib/devcontainer-initialized ]; then' >> /etc/bash.bashrc && \
+#     echo '    if [ -x /opt/devcontainer/scripts/devcontainer-init.sh ]; then' >> /etc/bash.bashrc && \
+#     echo '        echo "🚀 Running first-time devcontainer initialization..."' >> /etc/bash.bashrc && \
+#     echo '        (nohup sudo -E bash /opt/devcontainer/scripts/devcontainer-init.sh > /tmp/devcontainer-init-wrapper.log 2>&1 &)' >> /etc/bash.bashrc && \
+#     echo '        echo "✅ Initialization started in background. Check /var/log/devcontainer-init.log for progress."' >> /etc/bash.bashrc && \
+#     echo '    fi' >> /etc/bash.bashrc && \
+#     echo 'fi' >> /etc/bash.bashrc
 
 ENV DEBIAN_FRONTEND=dialog
