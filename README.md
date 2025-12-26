@@ -59,6 +59,8 @@ Configure VS Code to use Podman:
 
 #### Windsurf Configuration
 
+**1. Podman Support (if using Podman instead of Docker)**
+
 Windsurf cannot be configured to use Podman directly, so you need to create a Docker → Podman symlink:
 
 **Windows (Command Prompt as Administrator):**
@@ -87,6 +89,81 @@ sudo ln -s $(which podman) /usr/local/bin/docker
 
 # Verify
 docker --version  # Should show podman version
+```
+
+**2. Lifecycle Hook Workaround (Required for Windsurf)**
+
+⚠️ **Important:** Windsurf does not support devcontainer lifecycle hooks (`postCreateCommand`, `postStartCommand`), which means Docker and k3s won't automatically initialize.
+
+**Solution:** Use bash.bashrc to run initialization on first interactive shell.
+
+**Choose ONE of these approaches:**
+
+<details>
+<summary><b>Option A: Current Configuration (VS Code / Cursor)</b> - Default, already configured</summary>
+
+Uses lifecycle hooks in `devcontainer.json`:
+
+```json
+{
+  "postCreateCommand": "/opt/devcontainer/scripts/start-docker.sh",
+  "postStartCommand": "/opt/devcontainer/scripts/init-cluster.sh"
+}
+```
+
+✅ **Pros:** Clean, runs automatically during container lifecycle
+❌ **Cons:** Doesn't work in Windsurf
+
+</details>
+
+<details>
+<summary><b>Option B: Windsurf Configuration</b> - For Windsurf users</summary>
+
+**Step 1:** Edit `.devcontainer/devcontainer.json`
+
+Comment out both `postCreateCommand` and `postStartCommand`:
+
+```json
+{
+  // "postCreateCommand": "/opt/devcontainer/scripts/start-docker.sh",
+  // "postStartCommand": "/opt/devcontainer/scripts/init-cluster.sh",
+}
+```
+
+**Step 2:** Edit `.devcontainer/Dockerfile`
+
+Uncomment lines 52-61 (the bash.bashrc section):
+
+```dockerfile
+# Append first-run logic directly to /etc/bash.bashrc (runs for ALL interactive bash shells)
+RUN echo '' >> /etc/bash.bashrc && \
+    echo '# Auto-run devcontainer initialization on first interactive shell' >> /etc/bash.bashrc && \
+    echo 'if [ -t 1 ] && [ ! -f /var/lib/devcontainer-initialized ]; then' >> /etc/bash.bashrc && \
+    echo '    if [ -x /opt/devcontainer/scripts/devcontainer-init.sh ]; then' >> /etc/bash.bashrc && \
+    echo '        echo "🚀 Running first-time devcontainer initialization..."' >> /etc/bash.bashrc && \
+    echo '        (nohup sudo -E bash /opt/devcontainer/scripts/devcontainer-init.sh > /tmp/devcontainer-init-wrapper.log 2>&1 &)' >> /etc/bash.bashrc && \
+    echo '        echo "✅ Initialization started in background. Check /var/log/devcontainer-init.log for progress."' >> /etc/bash.bashrc && \
+    echo '    fi' >> /etc/bash.bashrc && \
+    echo 'fi' >> /etc/bash.bashrc
+```
+
+**Step 3:** Rebuild the devcontainer
+
+✅ **Pros:** Works in Windsurf!
+⚠️ **Cons:** First terminal takes ~60 seconds to initialize (runs in background)
+
+**How it works:**
+- First time you open a terminal, `devcontainer-init.sh` runs in background
+- Creates flag file `/var/lib/devcontainer-initialized` to prevent re-runs
+- Check logs: `tail -f /var/log/devcontainer-init.log`
+- Wait for "✅ Devcontainer initialization complete!" message
+
+</details>
+
+**To force re-initialization:**
+```bash
+sudo rm /var/lib/devcontainer-initialized
+# Then open a new terminal or rebuild container
 ```
 
 ### Usage
@@ -133,6 +210,10 @@ Key configuration in [.devcontainer/devcontainer.json](.devcontainer/devcontaine
   "remoteUser": "root",
   "postCreateCommand": "/opt/devcontainer/scripts/start-docker.sh",
   "postStartCommand": "/opt/devcontainer/scripts/init-cluster.sh",
+  "containerEnv": {
+    "KUBECONFIG": "/root/.kube/config",
+    "K3D_CLUSTER_NAME": "devcontainer"
+  },
   "forwardPorts": [6443, 8080, 8443]
 }
 ```
